@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quant"
+version = "0.1.0"
+description = "My quant tools"
+authors = [{name = "Mateo Rodriguez"}]
+
+[tool.setuptools.packages.find]
+where = ["."]
