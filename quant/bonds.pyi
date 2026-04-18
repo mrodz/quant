@@ -107,11 +107,12 @@ class BondHistoryResult:
         """Get a specific field for a specific bond."""
         ...
     
-    def __getitem__(self, key: tuple[BondL1 | str, str] | str) -> pd.Series | pd.DataFrame:
+    def __getitem__(self, key: tuple[BondL1 | str, str | list[str]] | str) -> pd.Series | pd.DataFrame:
         """
-        result["BID"]               -> all bonds, BID field (MultiIndex df)
-        result[bond, "BID"]         -> single bond BID series
-        result[bond]                -> all fields for one bond
+        result["BID"]                           -> all bonds, BID field (MultiIndex df)
+        result[bond, "BID"]                     -> single bond BID series
+        result[bond, ["BID", "ASK"]]            -> single bond, multiple fields
+        result[bond]                            -> all fields for one bond
         """
         ...
     

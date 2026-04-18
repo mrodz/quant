@@ -35,12 +35,13 @@ class SessionNotOpenError(QuantException):
     """Raised when an operation is attempted without an active session."""
 
 from quant.bonds import BondsClient
-
+from quant.equities import EquitiesClient
     
 
 class Client:
     def __init__(self, is_active: Callable[[], bool]):
         self.bonds = BondsClient(is_active)
+        self.equities = EquitiesClient(is_active)
 
 
 class SessionProvider:

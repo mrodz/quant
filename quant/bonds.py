@@ -246,32 +246,48 @@ class BondHistoryResult:
     
     def get(self, bond_or_ric: BondL1 | str, field: str) -> pd.Series:
         """Get a specific field for a specific bond."""
-        field = field.upper()
-        if field not in self.fields:
-            raise KeyError(f"{field!r} was not requested; available: {self.fields}")
+        ric = bond_or_ric if isinstance(bond_or_ric, str) else bond_or_ric.ric
         if self.is_multi:
-            return self.df[bond_or_ric if isinstance(bond_or_ric, str) else bond_or_ric.ric][field]  # adjust bond key as needed
+            if ric not in self.df.columns.get_level_values(0):
+                raise KeyError(f"{ric!r} not found; available: {self.df.columns.get_level_values(0).unique().tolist()}")
+            if field not in self.df[ric].columns:
+                raise KeyError(f"{field!r} was not requested; available: {self.df[ric].columns.tolist()}")
+            return self.df[ric][field]
+        if field not in self.df.columns:
+            raise KeyError(f"{field!r} was not requested; available: {self.df.columns.tolist()}")
         return self.df[field]
-    
-    def __getitem__(self, key: tuple[BondL1 | str, str] | str) -> pd.Series | pd.DataFrame:
+
+    def __getitem__(self, key: tuple[BondL1 | str, str | list[str]] | str) -> pd.Series | pd.DataFrame:
         """
-        result["BID"]               -> all bonds, BID field (MultiIndex df)
-        result[bond, "BID"]         -> single bond BID series
-        result[bond]                -> all fields for one bond
+        result["BID"]                           -> all bonds, BID field (MultiIndex df)
+        result[bond, "BID"]                     -> single bond BID series
+        result[bond, ["BID", "ASK"]]            -> single bond, multiple fields
+        result[bond]                            -> all fields for one bond
         """
         if isinstance(key, tuple):
-            bond_or_ric, field = key
-            return self.get(bond_or_ric, field)
+            bond_or_ric, fields = key
+            ric = bond_or_ric.ric if hasattr(bond_or_ric, "ric") else bond_or_ric
+            if isinstance(fields, list):
+                if self.is_multi:
+                    if ric not in self.df.columns.get_level_values(0):
+                        raise KeyError(f"{ric!r} not found; available: {self.df.columns.get_level_values(0).unique().tolist()}")
+                    return self.df[ric].reindex(columns=fields)
+                return self.df.reindex(columns=fields)
+            return self.get(bond_or_ric, fields)
         if isinstance(key, str):
-            field = key.upper()
-            if field not in self.fields:
-                raise KeyError(f"{field!r} was not requested; available: {self.fields}")
+            field = key
             if self.is_multi:
+                if field not in self.df.columns.get_level_values(1):
+                    raise KeyError(f"{field!r} was not requested; available: {self.df.columns.get_level_values(1).unique().tolist()}")
                 return self.df.xs(field, axis=1, level=1)
+            if field not in self.df.columns:
+                raise KeyError(f"{field!r} was not requested; available: {self.df.columns.tolist()}")
             return self.df[[field]]
         # assume bond object
         if self.is_multi:
-            return self.df[key.isin]  # adjust bond key as needed
+            if key.ric not in self.df.columns.get_level_values(0):
+                raise KeyError(f"{key.ric!r} not found; available: {self.df.columns.get_level_values(0).unique().tolist()}")
+            return self.df[key.ric]
         return self.df
     
     
@@ -367,7 +383,7 @@ class BondsClient:
         
         universe = [bond.ric for bond in l1] if isinstance(l1, list) else [l1.ric]
         
-        return ld.get_history(universe=universe, fields=fields, start=start, end=end, interval=interval.value).dropna()
+        return ld.get_history(universe=universe, fields=fields, start=start, end=end, interval=interval.value).dropna(how='all', axis=0)
     
     def history(self, l1: BondL1 | list[BondL1], fields=[], *, interval: Interval, start: Optional[Union[date, datetime]] = None, end: Optional[Union[date, datetime]] = None) -> BondHistoryResult:
         if not self.__is_active():
