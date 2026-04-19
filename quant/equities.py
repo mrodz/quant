@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 import lseg.data as ld
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -143,7 +144,7 @@ class EquityNotFoundError(EquitiesClientError):
 @dataclass
 class EquityHistoryResult:
     df: pd.DataFrame
-    equities: Union[EquityL1, list[EquityL1]]
+    equities: Union[EquityL1, Sequence[EquityL1]]
     fields: list[str]
     interval: Interval
     start: Optional[Union[date, datetime]] = None
@@ -202,7 +203,7 @@ class EquityHistoryResult:
     @classmethod
     def from_query_result(
         cls,
-        equities: Union[EquityL1, list[EquityL1]],
+        equities: Union[EquityL1, Sequence[EquityL1]],
         fields: list[str],
         interval: Interval,
         start: Optional[Union[date, datetime]],
@@ -255,21 +256,25 @@ class EquitiesClient:
             top=20,
         ).dropna()
 
-    def list_securities(self, ticker: str) -> list[EquityL1]:
+    def list_securities(self, ticker: str) -> Sequence[EquityL1]:
         if not self.__is_active():
             raise SessionNotOpenError("list_securities")
 
         df = self.list_securities_df(ticker)
         return [EquityL1.from_row(row) for _, row in df.iterrows()]
 
-    def upgrade_l1_equity_df(self, l1: EquityL1 | list[EquityL1], fields=DEFAULT_UPGRADE_FIELDS) -> pd.DataFrame:
+    def upgrade_l1_equity_df(self, l1: EquityL1 | Sequence[EquityL1], fields: list[str]=DEFAULT_UPGRADE_FIELDS) -> pd.DataFrame:
         if not self.__is_active():
             raise SessionNotOpenError("upgrade_l1_equity_df")
 
         universe = [eq.ric for eq in l1] if isinstance(l1, list) else [l1.ric]
-        return ld.get_data(universe=universe, fields=fields)
+        
+        f = set(fields)
+        f_s = set(self.DEFAULT_UPGRADE_FIELDS)
+        
+        return ld.get_data(universe=universe, fields=list(f | f_s))
 
-    def upgrade_l1_equity(self, l1: EquityL1 | list[EquityL1], fields=DEFAULT_UPGRADE_FIELDS) -> list[EquityL2]:
+    def upgrade_l1_equity(self, l1: EquityL1 | Sequence[EquityL1], fields=DEFAULT_UPGRADE_FIELDS) -> list[EquityL2]:
         if not self.__is_active():
             raise SessionNotOpenError("upgrade_l1_equity")
 
@@ -287,7 +292,7 @@ class EquitiesClient:
 
     def history_df(
         self,
-        l1: EquityL1 | list[EquityL1],
+        l1: EquityL1 | Sequence[EquityL1],
         fields=[],
         *,
         interval: Interval,
@@ -302,7 +307,7 @@ class EquitiesClient:
 
     def history(
         self,
-        l1: EquityL1 | list[EquityL1],
+        l1: EquityL1 | Sequence[EquityL1],
         fields=[],
         *,
         interval: Interval,

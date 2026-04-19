@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, date
 from typing import Optional, Self, Union
@@ -59,7 +60,7 @@ class EquityL2(EquityL1):
 @dataclass
 class EquityHistoryResult:
     df: pd.DataFrame
-    equities: Union[EquityL1, list[EquityL1]]
+    equities: Union[EquityL1, Sequence[EquityL1]]
     fields: list[str]
     interval: Interval
     start: Optional[Union[date, datetime]] = None
@@ -85,7 +86,7 @@ class EquityHistoryResult:
     @classmethod
     def from_query_result(
         cls,
-        equities: Union[EquityL1, list[EquityL1]],
+        equities: Union[EquityL1, Sequence[EquityL1]],
         fields: list[str],
         interval: Interval,
         start: Optional[Union[date, datetime]],
@@ -110,21 +111,21 @@ class EquitiesClient:
     def __init__(self, session):
         self._session = session
 
-    def list_securities(self, ticker: str) -> list[EquityL1]:
+    def list_securities(self, ticker: str) -> Sequence[EquityL1]:
         ...
 
     def list_securities_df(self, ticker: str) -> pd.DataFrame:
         ...
 
-    def upgrade_l1_equity_df(self, l1: EquityL1 | list[EquityL1], fields=DEFAULT_UPGRADE_FIELDS) -> pd.DataFrame:
+    def upgrade_l1_equity_df(self, l1: EquityL1 | Sequence[EquityL1], fields=DEFAULT_UPGRADE_FIELDS) -> pd.DataFrame:
         ...
 
-    def upgrade_l1_equity(self, l1: EquityL1 | list[EquityL1], fields=DEFAULT_UPGRADE_FIELDS) -> list[EquityL2]:
+    def upgrade_l1_equity(self, l1: EquityL1 | Sequence[EquityL1], fields=DEFAULT_UPGRADE_FIELDS) -> list[EquityL2]:
         ...
 
     def history_df(
         self,
-        l1: EquityL1 | list[EquityL1],
+        l1: EquityL1 | Sequence[EquityL1],
         fields=[],
         *,
         interval: Interval,
@@ -135,7 +136,7 @@ class EquitiesClient:
 
     def history(
         self,
-        l1: EquityL1 | list[EquityL1],
+        l1: EquityL1 | Sequence[EquityL1],
         fields=[],
         *,
         interval: Interval,

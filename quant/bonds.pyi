@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, date
 from typing import Optional, Self, Union
@@ -33,7 +34,7 @@ class BondL1:
     def upgrade_l1_bond_df(self, l1: BondL1, fields=[]) -> pd.DataFrame:
         ...
         
-    def upgrade_l1_bond(self, l1: BondL1, fields=[]) -> BondL2:
+    def upgrade_l1_bond(self, l1: BondL1 | list[BondL1], fields=[]) -> Sequence[BondL2]:
         ...
 
 @dataclass
@@ -93,7 +94,7 @@ class BondL2(BondL1):
 @dataclass
 class BondHistoryResult:
     df: pd.DataFrame
-    bonds: Union[BondL1, list[BondL1]]
+    bonds: Union[BondL1, Sequence[BondL1]]
     fields: list[str]
     interval: Interval
     start: Optional[Union[date, datetime]] = None
@@ -117,7 +118,7 @@ class BondHistoryResult:
         ...
     
     @classmethod
-    def from_query_result(cls, bonds: Union[BondL1, list[BondL1]], fields: list[str], interval: Interval, start: Optional[Union[date, datetime]], end: Optional[Union[date, datetime]], df: pd.DataFrame) -> Self:
+    def from_query_result(cls, bonds: Union[BondL1, Sequence[BondL1]], fields: list[str], interval: Interval, start: Optional[Union[date, datetime]], end: Optional[Union[date, datetime]], df: pd.DataFrame) -> Self:
         ...
 
 
@@ -125,20 +126,20 @@ class BondsClient:
     def __init__(self, session):
         self._session = session
 
-    def list_securities(self, ticker: str) -> list[BondL1]:
+    def list_securities(self, ticker: str) -> Sequence[BondL1]:
         ...
 
     def list_securities_df(self, ticker: str) -> pd.DataFrame:
         ...
 
-    def upgrade_l1_bond_df(self, l1: BondL1 | list[BondL1], fields=[]) -> pd.DataFrame:
+    def upgrade_l1_bond_df(self, l1: BondL1 | Sequence[BondL1], fields=[]) -> pd.DataFrame:
         ...
         
-    def upgrade_l1_bond(self, l1: BondL1 | list[BondL1], fields=[]) -> list[BondL2]:
+    def upgrade_l1_bond(self, l1: BondL1 | Sequence[BondL1], fields=[]) -> list[BondL2]:
         ...
         
-    def history_df(self, l1: BondL1 | list[BondL1], fields=[], *, interval: Interval, start: Optional[Union[date, datetime]] = None, end: Optional[Union[date, datetime]] = None) -> pd.DataFrame:
+    def history_df(self, l1: BondL1 | Sequence[BondL1], fields=[], *, interval: Interval, start: Optional[Union[date, datetime]] = None, end: Optional[Union[date, datetime]] = None) -> pd.DataFrame:
         ...
     
-    def history(self, l1: BondL1 | list[BondL1], fields=[], *, interval: Interval, start: Optional[Union[date, datetime]] = None, end: Optional[Union[date, datetime]] = None) -> BondHistoryResult:
+    def history(self, l1: BondL1 | Sequence[BondL1], fields=[], *, interval: Interval, start: Optional[Union[date, datetime]] = None, end: Optional[Union[date, datetime]] = None) -> BondHistoryResult:
         ...
