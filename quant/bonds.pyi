@@ -138,7 +138,7 @@ class BondsClient:
     def upgrade_l1_bond(self, l1: BondL1 | Sequence[BondL1], fields=[]) -> list[BondL2]:
         ...
         
-    def history_df(self, l1: BondL1 | Sequence[BondL1], fields=[], *, interval: Interval, start: Optional[Union[date, datetime]] = None, end: Optional[Union[date, datetime]] = None) -> pd.DataFrame:
+    def history_df(self, l1: BondL1 | Sequence[BondL1] | str | list[str], fields=[], *, interval: Interval, start: Optional[Union[date, datetime]] = None, end: Optional[Union[date, datetime]] = None) -> pd.DataFrame:
         ...
     
     def history(self, l1: BondL1 | Sequence[BondL1], fields=[], *, interval: Interval, start: Optional[Union[date, datetime]] = None, end: Optional[Union[date, datetime]] = None) -> BondHistoryResult:

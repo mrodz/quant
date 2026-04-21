@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from collections.abc import Sequence
 import lseg.data as ld
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Optional, Callable, Self, Union
+from typing import Any, Optional, Callable, Self, Union
 import logging
 import pandas as pd
 from quant import Interval, QuantException, SessionNotOpenError
@@ -136,6 +138,39 @@ class EquityNotFoundError(EquitiesClientError):
     def __init__(self, ric: str) -> None:
         super().__init__(f"Equity not found: {ric!r}")
         self.ric = ric
+
+
+
+
+
+@dataclass
+class HistoricalIV:    
+    df: pd.DataFrame
+    
+    @classmethod
+    def from_df(cls, df: pd.DataFrame) -> Self:
+        return cls(df.drop(columns=["IMP_VOLT"]))
+    
+    @property    
+    def c30(self) -> pd.Series[float]:
+        return self.df["30D_A_IM_C"]
+    
+    @property    
+    def p30(self) -> pd.Series[float]:
+        return self.df["30D_A_IM_P"]
+    @property    
+    def c60(self) -> pd.Series[float]:
+        return self.df["60D_A_IM_C"]
+    @property    
+    def p60(self) -> pd.Series[float]:
+        return self.df["60D_A_IM_P"]
+    @property    
+    def c90(self) -> pd.Series[float]:
+        return self.df["90D_A_IM_C"]
+    @property    
+    def p90(self) -> pd.Series[float]:
+        return self.df["90D_A_IM_P"] 
+    
 
 
 # ── EquityHistoryResult ───────────────────────────────────────────────────────
@@ -292,7 +327,7 @@ class EquitiesClient:
 
     def history_df(
         self,
-        l1: EquityL1 | Sequence[EquityL1],
+        l1: EquityL1 | Sequence[EquityL1] | str | Sequence[str],
         fields=[],
         *,
         interval: Interval,
@@ -302,7 +337,7 @@ class EquitiesClient:
         if not self.__is_active():
             raise SessionNotOpenError("history_df")
 
-        universe = [eq.ric for eq in l1] if isinstance(l1, list) else [l1.ric]
+        universe = [eq if isinstance(eq, str) else eq.ric for eq in l1] if isinstance(l1, list) else [l1 if isinstance(l1, str) else l1.ric]
         return ld.get_history(universe=universe, fields=fields, start=start, end=end, interval=interval.value).dropna(how='all', axis=0)
 
     def history(
@@ -322,3 +357,21 @@ class EquitiesClient:
 
         df = self.history_df(l1, fields=fields, interval=interval, start=start, end=end)
         return EquityHistoryResult.from_query_result(l1, fields, interval, start, end, df)
+    
+    def historical_iv(
+        self,
+        l1: EquityL1 | str,
+        *,
+        interval: Interval,
+        start: Optional[Union[date, datetime]] = None,
+        end: Optional[Union[date, datetime]] = None,
+    ) -> HistoricalIV:
+        if not self.__is_active():
+            raise SessionNotOpenError("historical_iv")
+        
+        l1_ric = l1 if isinstance(l1, str) else l1.ric
+        vol_ric = f"{l1_ric}ATMIV.U"
+        
+        df = ld.get_history(universe=[vol_ric], interval=interval.value, start=start, end=end)
+        
+        return HistoricalIV.from_df(df)

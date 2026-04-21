@@ -3,3 +3,8 @@
 
 **/__pycache__
 **/lseg-data.config.json
+
+**/.DS_Store
+
+vix.csv
+working_mo_df.csv

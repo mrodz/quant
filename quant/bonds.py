@@ -397,11 +397,11 @@ class BondsClient:
             return [BondL2._from_row(l1, row) for _, row in df.iterrows()]
         
         
-    def history_df(self, l1: BondL1 | Sequence[BondL1], fields=[], *, interval: Interval, start: Optional[Union[date, datetime]] = None, end: Optional[Union[date, datetime]] = None) -> pd.DataFrame:
+    def history_df(self, l1: BondL1 | Sequence[BondL1] | str | list[str], fields=[], *, interval: Interval, start: Optional[Union[date, datetime]] = None, end: Optional[Union[date, datetime]] = None) -> pd.DataFrame:
         if not self.__is_active():
             raise SessionNotOpenError("pricing_df")
         
-        universe = [bond.ric for bond in l1] if isinstance(l1, list) else [l1.ric]
+        universe = [bond if isinstance(bond, str) else bond.ric for bond in l1] if isinstance(l1, list) else [l1 if isinstance(l1, str) else l1.ric]
         
         return ld.get_history(universe=universe, fields=fields, start=start, end=end, interval=interval.value).dropna(how='all', axis=0)
     

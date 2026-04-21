@@ -33,6 +33,11 @@ class SeriesGroup:
     z: Optional[float] = 0.25
     overlay: Optional[pd.Series] = None
     axis: Optional[Axis] = None
+    
+    """
+    labels  : optional dict with keys "primary", "overlay", "title",
+              "ylabel_primary", "ylabel_overlay"
+    """
     labels: dict = field(default_factory=dict)
 
     # ── cosmetics ────────────────────────────────────────────────────────────
@@ -148,7 +153,8 @@ class SeriesGroup:
                 + ([band_label] if band_label else [])
                 + [l.get_label() for l in ax2.get_lines()]
             )
-            ax.legend(lines, labels, fontsize=9, loc="upper left")
+            if len(labels) > 0:
+                ax.legend(lines, labels, fontsize=9, loc="upper left")
 
             return fig, (ax, ax2)
 

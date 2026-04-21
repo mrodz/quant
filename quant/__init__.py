@@ -5,6 +5,7 @@ import pandas as pd
 from .series_group import SeriesGroup, SeriesGroupStack, Axis
 from . import kmv
 from . import kmv_timeseries
+from . import credit_direction
 
 class Interval(str, Enum):
     TICK = "tick"
@@ -40,12 +41,13 @@ class SessionNotOpenError(QuantException):
 
 from quant.bonds import BondsClient
 from quant.equities import EquitiesClient
-    
+from quant.options import OptionsClient, OptionChainExchangeHost, OptionsChainResult, OptionChainRICFormatter
 
 class Client:
     def __init__(self, is_active: Callable[[], bool]):
         self.bonds = BondsClient(is_active)
         self.equities = EquitiesClient(is_active)
+        self.options = OptionsClient(is_active)
 
 
 class SessionProvider:

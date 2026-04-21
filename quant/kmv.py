@@ -132,9 +132,15 @@ class KMVResult:
 
 # ── Merton helper functions ───────────────────────────────────────────────────
 
+# 106889871506.25 0.0 0.045 0.2804355921914363 1.0
+
 def _d1(V: float, F: float, r: float, sigma: float, T: float) -> float:
     """Merton d₁ (asset value, face value of debt, rate, vol, horizon)."""
-    return (math.log(V / F) + (r + 0.5 * sigma ** 2) * T) / (sigma * math.sqrt(T))
+    expr1 = V / F
+    expr2 = math.log(expr1)
+    expr3 = (expr2 + (r + 0.5 * sigma ** 2) * T)
+    expr4 = (sigma * math.sqrt(T))
+    return expr3 / expr4
 
 
 def _d2(V: float, F: float, r: float, sigma: float, T: float) -> float:
