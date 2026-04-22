@@ -44,6 +44,19 @@ class BondL1:
             return datetime.strptime(maybe_date_part, "%d-%b-%Y").date()
         except ValueError:
             return None
+        
+    def coupon(self) -> Optional[float]:
+        parts = self.name.split()
+        if not parts:
+            return None
+        
+        maybe_coupon_part = parts[-2]
+        
+        try:
+            return float(maybe_coupon_part)
+        except ValueError:
+            return None
+        
     
     def company(self) -> Optional[str]:
         parts = self.name.split(',')
