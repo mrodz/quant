@@ -39,8 +39,8 @@ class QuantException(Exception):
 class SessionNotOpenError(QuantException):
     """Raised when an operation is attempted without an active session."""
 
-from quant.bonds import BondsClient
-from quant.equities import EquitiesClient
+from quant.bonds import BondsClient, BondL1, BondL2, BondHistoryResult
+from quant.equities import EquitiesClient, EquityL1, EquityL2, EquityHistoryResult
 from quant.options import OptionsClient, OptionChainExchangeHost, OptionsChainResult, OptionChainRICFormatter
 
 class Client:
@@ -66,3 +66,5 @@ class SessionProvider:
         
     def open(self) -> bool:
         return self.__open
+
+from . import study
