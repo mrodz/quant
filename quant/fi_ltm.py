@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from itertools import batched
@@ -21,7 +22,7 @@ logger.setLevel(logging.ERROR)
 @dataclass
 class _FILtmStudyState:
     common_stock: EquityL1
-    bonds: list[BondL1]
+    bonds: Sequence[BondL1]
     interval: Interval
     start: datetime
     end: datetime
@@ -268,7 +269,7 @@ class FILtmStudy(Study[_FILtmStudyState, pd.DataFrame]):
     def name(cls) -> str:
         return "Fixed Income Long Term Maturity Signal Test"
     
-    def prepare_args(self, common_stock: EquityL1, bonds: list[BondL1], risk_free_rate_decimal: float) -> _FILtmStudyImpl:
+    def prepare_args(self, common_stock: EquityL1, bonds: Sequence[BondL1], risk_free_rate_decimal: float) -> _FILtmStudyImpl:
         state = _FILtmStudyState(common_stock, bonds, self.interval, self.start, self.end, self.vix, risk_free_rate_decimal)
         return _FILtmStudyImpl(state)
         
