@@ -377,6 +377,21 @@ class BondsClient:
             query=ticker,
             top=20
         ).dropna()
+        
+    def securities_from_equity_ric(self, ric: str) -> list[BondL1]:
+        if not self.__is_active():
+            raise SessionNotOpenError("securities_from_equity_ric")
+
+        df = ld.get_data(
+            universe=ric,
+            fields=["DocumentTitle", "RIC", "PermID", "PI", "BusinessEntity"],
+            parameters={"SType": "bonds"},
+        )
+
+        if df is None or df.empty:
+            return []
+
+        return [BondL1.from_row(row) for _, row in df.iterrows()]
     
     
     def list_securities(self, ticker: str) -> list[BondL1]:

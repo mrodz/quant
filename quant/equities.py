@@ -4,10 +4,11 @@ from collections.abc import Sequence
 import lseg.data as ld
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, Optional, Callable, Self, Union
+from typing import Any, Optional, Callable, Self, Union, cast
 import logging
 import pandas as pd
 from quant import Interval, QuantException, SessionNotOpenError
+from quant.bonds import BondL1
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +20,11 @@ DocumentTitle        PermID
 
 @dataclass
 class EquityL1:
-    name: str
+    name: Optional[str]
     ric: str
     perm_id: str
-    pi: str
-    business_entity: str
+    pi: Optional[str]
+    business_entity: Optional[str]
 
     @classmethod
     def from_row(cls, row: pd.Series) -> Self:
@@ -41,6 +42,9 @@ class EquityL1:
         return parts[-1] if len(parts) > 1 else None
 
     def company(self) -> Optional[str]:
+        if self.name is None:
+            return None
+        
         parts = self.name.split(",")
         if not parts:
             return None
@@ -48,6 +52,9 @@ class EquityL1:
         return maybe_company if maybe_company else None
 
     def asset_class(self) -> Optional[str]:
+        if self.name is None:
+            return None
+        
         parts = self.name.split(",")
         if len(parts) < 2:
             return None
@@ -260,6 +267,7 @@ class EquityHistoryResult:
 
 class EquitiesClient:
     DEFAULT_UPGRADE_FIELDS = [
+        "DocumentTitle",
         "TR.ExchangeTicker", 
         "TR.CommonName", 
         "TR.Ticker", 
@@ -267,7 +275,9 @@ class EquitiesClient:
         "TR.Revenue", 
         "TR.CompanyMarketCapitalization", 
         "TR.NumberofSharesOutstandingActual", 
-        "TR.F.ITMShrFulDilComShrOutstTot"
+        "TR.F.ITMShrFulDilComShrOutstTot",
+        "TR.RIC",
+        
     ]    
     """
     High-level interface for LSEG equity data.
@@ -298,20 +308,86 @@ class EquitiesClient:
         df = self.list_securities_df(ticker)
         return [EquityL1.from_row(row) for _, row in df.iterrows()]
 
-    def upgrade_l1_equity_df(self, l1: EquityL1 | Sequence[EquityL1], fields: list[str]=DEFAULT_UPGRADE_FIELDS) -> pd.DataFrame:
+
+    @staticmethod
+    def __gen_accept_rics_l1(l1: EquityL1 | Sequence[EquityL1] | str | Sequence[str]) -> list[str]:
+        if isinstance(l1, str):
+            return [l1]
+        elif not isinstance(l1, Sequence):
+            return [l1.ric]
+
+        return [ric if isinstance(ric, str) else ric.ric for ric in l1]
+    
+    
+    def __gen_init_l1(self, l1: EquityL1 | Sequence[EquityL1] | str | Sequence[str]) -> list[EquityL1]:
+        assert self.__is_active()
+        
+        if not isinstance(l1, str):
+            if not isinstance(l1, Sequence):
+                return [l1]
+            if isinstance(l1, Sequence):
+                if all([not isinstance(equity, str) for equity in l1]):
+                    return cast(list[EquityL1], l1)
+            
+            rics = cast(list[str], l1)
+        else:
+            rics = [l1]
+            
+        for ric in rics:
+            """
+            BusinessEntity
+            PI         RIC
+            DocumentTitle        PermID
+            """
+            RIC = ld.discovery.SymbolTypes.RIC
+            OA_PERM_ID = ld.discovery.SymbolTypes.OA_PERM_ID
+            # OA_PERM_ID = ld.discovery.SymbolTypes.NAM
+            
+            # ric='NVDA.O', perm_id='55839263858', pi='747620',
+            
+            df = ld.discovery.convert_symbols(symbols=rics, from_symbol_type=RIC, to_symbol_types=[OA_PERM_ID, ])
+            
+            result = []
+            
+            for ric in rics:
+                l1_i = EquityL1(name=None, ric=ric, perm_id=df.loc[ric, "IssuerOAPermID"], pi=None, business_entity=None)
+                result.append(l1_i)
+            
+            return result
+        
+    
+    def bonds_of_equity(self, l1: EquityL1 | str) -> list[BondL1]:
+        if not self.__is_active():
+            raise SessionNotOpenError("bonds_of_equity")
+                
+        if isinstance(l1, str):
+            l1 = self.__gen_init_l1(l1)[0]
+        
+        df = ld.discovery.search(
+            view = ld.discovery.Views.GOV_CORP_INSTRUMENTS,
+            filter = f"ParentOAPermID eq '{l1.perm_id}' and IsActive eq true and not(AssetStatus in ('MAT'))",
+            select = "DocumentTitle, RIC, PermID, PI, BusinessEntity",
+            top = 10000)
+        
+        return [BondL1.from_row(row) for _, row in df.iterrows()]
+        
+            
+    def upgrade_l1_equity_df(self, l1: EquityL1 | Sequence[EquityL1] | str | Sequence[str], fields: list[str]=DEFAULT_UPGRADE_FIELDS) -> pd.DataFrame:
         if not self.__is_active():
             raise SessionNotOpenError("upgrade_l1_equity_df")
 
-        universe = [eq.ric for eq in l1] if isinstance(l1, list) else [l1.ric]
+        universe = self.__gen_accept_rics_l1(l1)
         
         f = set(fields)
         f_s = set(self.DEFAULT_UPGRADE_FIELDS)
         
         return ld.get_data(universe=universe, fields=list(f | f_s))
 
-    def upgrade_l1_equity(self, l1: EquityL1 | Sequence[EquityL1], fields=DEFAULT_UPGRADE_FIELDS) -> list[EquityL2]:
+    def upgrade_l1_equity(self, l1: EquityL1 | Sequence[EquityL1] | str | Sequence[str], fields=DEFAULT_UPGRADE_FIELDS) -> list[EquityL2]:
         if not self.__is_active():
             raise SessionNotOpenError("upgrade_l1_equity")
+
+        l1 = self.__gen_init_l1(l1)
 
         df = self.upgrade_l1_equity_df(l1, fields)
 
