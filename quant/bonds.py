@@ -415,6 +415,9 @@ class BondsClient:
         df = self.upgrade_l1_bond_df(l1, fields)
          
         if isinstance(l1, list):
+            if "Instrument" not in df.columns:
+                return []
+
             result = []
 
             for bond in l1:
@@ -423,9 +426,12 @@ class BondsClient:
                 for x in df["Instrument"]:
                     print(x)
                 print("\n\n")
-                    
-                result.append(BondL2._from_row(bond, df.loc[df["Instrument"] == bond.ric].iloc[0]))
-                
+
+                rows = df.loc[df["Instrument"] == bond.ric]
+                if rows.empty:
+                    continue
+                result.append(BondL2._from_row(bond, rows.iloc[0]))
+
             return result
         else:
             return [BondL2._from_row(l1, row) for _, row in df.iterrows()]

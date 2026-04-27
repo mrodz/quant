@@ -48,21 +48,28 @@ def main():
             print(f"Loaded {len(all_us_industrials_equities_rics)} US Industrials equities")
 
         for equity in tqdm(equities):
-            bonds_l1 = client.equities.bonds_of_equity(equity)
-            if len(bonds_l1) == 0:
-                continue
-            
-            bonds = client.bonds.upgrade_l1_bond(bonds_l1)
-            
-            start = min([bond.issue_date for bond in bonds if bond.issue_date is not None])
-            
-            study = quant.study.fi_ltm.FILtmStudy(datetime.combine(start, datetime.min.time()), STUDY_END, quant.Interval.DAILY, vix)
-    
-            ready_to_run = study.prepare_args(equity, bonds, RISK_FREE_RATE, bond_cache=bond_cache)
-            
-            result = ready_to_run.run_client(client)
-            
-            result.to_dataframe().to_csv(STORE_PATH / f'{equity.ric}.csv')
+            try:
+                bonds_l1 = client.equities.bonds_of_equity(equity)
+                if len(bonds_l1) == 0:
+                    continue
+
+                bonds = client.bonds.upgrade_l1_bond(bonds_l1)
+                if len(bonds) == 0:
+                    continue
+
+                start = min([bond.issue_date for bond in bonds if bond.issue_date is not None])
+
+                study = quant.study.fi_ltm.FILtmStudy(datetime.combine(start, datetime.min.time()), STUDY_END, quant.Interval.DAILY, vix)
+
+                ready_to_run = study.prepare_args(equity, bonds, RISK_FREE_RATE, bond_cache=bond_cache)
+
+                result = ready_to_run.run_client(client)
+
+                df = result.to_dataframe()
+                if not df.empty:
+                    df.to_csv(STORE_PATH / f'{equity.ric}.csv')
+            except Exception as e:
+                print(f"Skipping {equity.ric}: {e}")
 
 if __name__ == "__main__":
     main()

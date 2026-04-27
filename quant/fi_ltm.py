@@ -60,6 +60,11 @@ def _bond_cache_key(bonds: Sequence[BondL1], interval: Interval, start: datetime
     return hashlib.sha1(payload.encode()).hexdigest()
 
 
+def _equity_cache_key(prefix: str, ric: str, interval: Interval, start: datetime, end: datetime) -> str:
+    payload = f"{ric}|{interval}|{start.date()}|{end.date()}"
+    return f"{prefix}_{hashlib.sha1(payload.encode()).hexdigest()}"
+
+
 @dataclass
 class FILtmResult:
     inputs: _FILtmStudyState
@@ -145,26 +150,45 @@ class _FILtmStudyImpl(PreparedStudy[_FILtmStudyState, FILtmResult]):
         Expensive, expect ~2 min execution
         """
         
-        print("Pull IV history")
-        historical_iv = client.equities.historical_iv(
-            self.inputs().common_stock.ric,
-            interval=self.inputs().interval,
-            start=self.inputs().start,
-            end=self.inputs().end,
-        )
-        
-        vix = self.inputs().vix[(self.inputs().start < self.inputs().vix.index) & (self.inputs().vix.index < self.inputs().end)]
-        
-        print("Pull stock history")
-        common_stock_df = client.equities.history_df(self.inputs().common_stock, fields=self.EQUITIES_FIELDS,
-                                                    interval=self.inputs().interval,
-                                                    start=self.inputs().start,
-                                                    end=self.inputs().end,
-                                                )
-            
-        common_stock_df = common_stock_df.ffill().rename(columns={"BID": "Stock_Bid", "ASK": "Stock_Ask"})
-        
         cache = self.inputs().bond_cache
+        ric = self.inputs().common_stock.ric
+
+        iv_key = _equity_cache_key("iv", ric, self.inputs().interval, self.inputs().start, self.inputs().end)
+        iv_df = cache.get(iv_key) if cache else None
+        if iv_df is None:
+            print("Pull IV history")
+            try:
+                historical_iv = client.equities.historical_iv(
+                    ric,
+                    interval=self.inputs().interval,
+                    start=self.inputs().start,
+                    end=self.inputs().end,
+                )
+                if cache:
+                    cache.set(iv_key, historical_iv.df)
+            except Exception:
+                logger.warning("No IV series found for %s — IV features will be empty", ric)
+                historical_iv = HistoricalIV(pd.DataFrame())
+        else:
+            historical_iv = HistoricalIV(iv_df)
+
+        vix = self.inputs().vix[(self.inputs().start < self.inputs().vix.index) & (self.inputs().vix.index < self.inputs().end)]
+
+        stock_key = _equity_cache_key("stock", ric, self.inputs().interval, self.inputs().start, self.inputs().end)
+        common_stock_df = cache.get(stock_key) if cache else None
+        if common_stock_df is None:
+            print("Pull stock history")
+            common_stock_df = client.equities.history_df(self.inputs().common_stock, fields=self.EQUITIES_FIELDS,
+                                                        interval=self.inputs().interval,
+                                                        start=self.inputs().start,
+                                                        end=self.inputs().end,
+                                                    )
+            common_stock_df = common_stock_df.ffill().rename(columns={"BID": "Stock_Bid", "ASK": "Stock_Ask"})
+            if cache:
+                cache.set(stock_key, common_stock_df)
+        else:
+            print("Pull stock history (cached)")
+        
         cache_key = _bond_cache_key(self.inputs().bonds, self.inputs().interval, self.inputs().start, self.inputs().end)
         bond_df = cache.get(cache_key) if cache else None
         if bond_df is None:
@@ -307,7 +331,11 @@ class _FILtmStudyImpl(PreparedStudy[_FILtmStudyState, FILtmResult]):
                 
                 X_train, X_test = X.iloc[train_idx_purged], X.iloc[test_idx]
                 y_train, y_test = y.iloc[train_idx_purged], y.iloc[test_idx]
-                
+
+                if y_train.nunique() < 2:
+                    scores.append(np.nan)
+                    continue
+
                 # Calculate weights for the training set
                 weights = get_decay_weights(len(X_train))
                 
@@ -333,7 +361,7 @@ class _FILtmStudyImpl(PreparedStudy[_FILtmStudyState, FILtmResult]):
             # 4. Output Results for the current DataFrame
             logger.debug(f"""{ric_to_bond[idx].name}
                             \tValidated Hit Rates (Weighted) across 5 folds: {['{:.2%}'.format(s) for s in scores]}
-                            \tAverage Hit Rate: {np.mean(scores):.2%}""")
+                            \tAverage Hit Rate: {np.nanmean(scores):.2%}""")
             
         df_results = pd.DataFrame.from_dict(
             {f'{ric_to_bond[bond].maturity()} - {ric_to_bond[bond].coupon()}': bond_to_pred_power[bond] 
