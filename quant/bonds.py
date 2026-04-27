@@ -24,10 +24,10 @@ class BondL1:
     business_entity: str
     
     @classmethod
-    def from_row(cls, row: pd.Series) -> Self:
+    def from_row(cls, row: pd.Series, *, ric: Optional[str] = None) -> Self:
         return cls(
             name=row["DocumentTitle"],
-            ric=row["RIC"],
+            ric=ric if ric is not None else row["RIC"],
             perm_id=row["PermID"],
             pi=row["PI"],
             business_entity=row["BusinessEntity"],
@@ -408,7 +408,7 @@ class BondsClient:
             raise SessionNotOpenError("upgrade_l1_bond_df")
         
         universe = [bond.ric for bond in l1] if isinstance(l1, list) else [l1.ric]
-        
+        universe = list(filter(lambda ric: not pd.isna(ric), universe))
         return ld.get_data(universe=universe, fields=fields)
     
     def upgrade_l1_bond(self, l1: BondL1 | list[BondL1], fields=[]) -> Sequence[BondL2]:
@@ -418,6 +418,12 @@ class BondsClient:
             result = []
 
             for bond in l1:
+                print(bond)
+                print("#" * 25)
+                for x in df["Instrument"]:
+                    print(x)
+                print("\n\n")
+                    
                 result.append(BondL2._from_row(bond, df.loc[df["Instrument"] == bond.ric].iloc[0]))
                 
             return result

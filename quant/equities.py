@@ -369,7 +369,11 @@ class EquitiesClient:
             select = "DocumentTitle, RIC, PermID, PI, BusinessEntity",
             top = 10000)
         
-        return [BondL1.from_row(row) for _, row in df.iterrows()]
+        
+        # print('@@@', df.to_string())
+        # assert df["RIC"].isna().sum() == 0
+        
+        return [BondL1.from_row(row) for _, row in df.iterrows() if row["RIC"] is not pd.NA]
         
             
     def upgrade_l1_equity_df(self, l1: EquityL1 | Sequence[EquityL1] | str | Sequence[str], fields: list[str]=DEFAULT_UPGRADE_FIELDS) -> pd.DataFrame:
@@ -446,6 +450,12 @@ class EquitiesClient:
             raise SessionNotOpenError("historical_iv")
         
         l1_ric = l1 if isinstance(l1, str) else l1.ric
+        
+        if '.' in l1_ric:
+            ric_parts = l1_ric.split('.')
+            assert len(ric_parts) == 2
+            l1_ric = ric_parts[0]
+        
         vol_ric = f"{l1_ric}ATMIV.U"
         
         df = ld.get_history(universe=[vol_ric], interval=interval.value, start=start, end=end)

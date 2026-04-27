@@ -8,3 +8,7 @@
 
 vix.csv
 working_mo_df.csv
+
+data/fi_ltm_test/bond_cache
+data/fi_ltm_test/*.pkl
+data/fi_ltm_test/*.csv
