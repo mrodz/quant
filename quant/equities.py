@@ -156,6 +156,7 @@ class HistoricalIV:
     
     @classmethod
     def from_df(cls, df: pd.DataFrame) -> Self:
+        print(df.to_string())
         return cls(df.drop(columns=["IMP_VOLT"]))
     
     @property    
